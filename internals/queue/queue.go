@@ -30,6 +30,12 @@ func (q *Queue)Enqueue(task Task){
 	q.tasks <- task
 }
 
-func (q *Queue)Dequeue()Task{
-	return <-q.tasks
+func (q *Queue)Dequeue()(Task , bool){
+	  task , ok := <-q.tasks 
+        
+	  return  task,ok
+}
+
+func (q *Queue)Close(){
+	close(q.tasks) 
 }
