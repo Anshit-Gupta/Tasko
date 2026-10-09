@@ -2,9 +2,10 @@ package worker
 
 import (
 	"fmt"
-    "sync"
+	"sync"
+
+	"github.com/Anshit-Gupta/Tasko/internals/executor"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
-	
 )
 
 func Start(q *queue.Queue , workerID int , wg *sync.WaitGroup){
@@ -13,10 +14,17 @@ func Start(q *queue.Queue , workerID int , wg *sync.WaitGroup){
 		task,ok := q.Dequeue()
 
 		if !ok{ //ok == false means the channel is closed and there are no more values to receive.
-           return
+           return 
 		}
      
-		fmt.Printf("worker : %v processing task : %v \n ",workerID , task.ID)
+		err := executor.Execute(&task)
+
+		if err != nil {
+    fmt.Println("task failed:", task.ID, err)
+    continue
+}
+
+fmt.Println("task completed:", task.ID)
 		
 	}
 	

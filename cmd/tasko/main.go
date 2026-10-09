@@ -16,7 +16,7 @@ func main(){
     
 	var wg sync.WaitGroup
 
-	q:=queue.NewQueue(10)
+	 q:=queue.NewQueue(10)
 	for i:=1;i<=3;i++{
 		wg.Add(1)
 		go worker.Start(q , i , &wg)  
