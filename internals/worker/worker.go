@@ -26,10 +26,23 @@ func Start(q *queue.Queue, workerID int, wg *sync.WaitGroup , ts *taskstore.Task
 		err := executor.Execute(&task)
 
 		if err != nil {
-			fmt.Println("task failed:", task.ID, err)
+			//retry 
+           if task.RetryCount <3 {
+			task.RetryCount++
+			ts.Update(task,queue.Queued)
+			q.Enqueue(task)
+
+			continue  // or else it will go to completed 
+		   }else{
+            
+            fmt.Println("task failed:", task.ID, err)
 			
 			ts.Update(task, queue.Failed) 
 			continue
+		   }
+
+
+			
 		}
 
 		fmt.Println("task completed:", task.ID)

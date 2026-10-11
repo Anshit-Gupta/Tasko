@@ -20,6 +20,7 @@ type Task struct{
 	Type string
 	Payload []byte
 	State TaskState
+	RetryCount int  // number of retries already performed 
 }
 
 type Queue struct{
@@ -38,7 +39,7 @@ func NewQueue(capacity int )*Queue{
 }
 
 func (q *Queue)Enqueue(task Task){
-    task.State=Queued
+    task.State=Queued 
 	q.tasks <- task
 }
 
