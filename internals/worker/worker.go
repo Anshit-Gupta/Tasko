@@ -6,26 +6,36 @@ import (
 
 	"github.com/Anshit-Gupta/Tasko/internals/executor"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
+	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
 )
 
-func Start(q *queue.Queue , workerID int , wg *sync.WaitGroup){
-     defer wg.Done()
-	for{
-		task,ok := q.Dequeue()
+func Start(q *queue.Queue, workerID int, wg *sync.WaitGroup , ts *taskstore.TaskStore) {
 
-		if !ok{ //ok == false means the channel is closed and there are no more values to receive.
-           return 
+	defer wg.Done()
+
+	for {
+		task, ok := q.Dequeue()
+		
+		if !ok { //ok == false means the channel is closed and there are no more values to receive.
+			return  
 		}
-     
+        
+		
+		ts.Update(task, queue.Processing) 
+
 		err := executor.Execute(&task)
 
 		if err != nil {
-    fmt.Println("task failed:", task.ID, err)
-    continue
-}
+			fmt.Println("task failed:", task.ID, err)
+			
+			ts.Update(task, queue.Failed) 
+			continue
+		}
 
-fmt.Println("task completed:", task.ID)
+		fmt.Println("task completed:", task.ID)
 		
+		ts.Update(task, queue.Completed) 
+
 	}
-	
+
 }

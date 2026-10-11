@@ -1,14 +1,15 @@
 package main
 
 import (
-	
+	"fmt"
 	"os"
 	"os/signal"
-	"syscall"
-    "fmt"
-	"github.com/Anshit-Gupta/Tasko/internals/queue"
-	"github.com/Anshit-Gupta/Tasko/internals/worker"
 	"sync"
+	"syscall"
+
+	"github.com/Anshit-Gupta/Tasko/internals/queue"
+	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
+	"github.com/Anshit-Gupta/Tasko/internals/worker"
 )
 
 func main(){
@@ -16,10 +17,12 @@ func main(){
     
 	var wg sync.WaitGroup
 
-	 q:=queue.NewQueue(10)
+	q:=queue.NewQueue(10)
+
+	ts := taskstore.NewTaskStore()
 	for i:=1;i<=3;i++{
 		wg.Add(1)
-		go worker.Start(q , i , &wg)  
+		go worker.Start(q , i , &wg , ts )  //as ts is already a pointer 
 	}
 	
    newtask:= queue.Task{
@@ -42,9 +45,13 @@ func main(){
 	   Type: "send_email",
 	   Payload: []byte(`{"to":"anshit@email.com"}`),
    }
+    ts.Add(newtask)
 	q.Enqueue(newtask)
+	ts.Add(newtask2)
 	q.Enqueue(newtask2)
+	ts.Add(newtask3)
 	q.Enqueue(newtask3)
+	ts.Add(newtask4)
 	q.Enqueue(newtask4)
 
 	signal.Notify(sigChan , os.Interrupt , syscall.SIGTERM)

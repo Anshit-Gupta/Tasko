@@ -4,11 +4,22 @@ import (
 	
 )
 
+
+type TaskState string
+
+const (
+    Queued TaskState = "queued"
+	Processing TaskState = "processing"
+    Completed TaskState = "completed"
+	Failed TaskState = "failed"
+)
+
 // task one unit of work 
 type Task struct{
 	ID string
 	Type string
 	Payload []byte
+	State TaskState
 }
 
 type Queue struct{
@@ -27,6 +38,7 @@ func NewQueue(capacity int )*Queue{
 }
 
 func (q *Queue)Enqueue(task Task){
+    task.State=Queued
 	q.tasks <- task
 }
 
