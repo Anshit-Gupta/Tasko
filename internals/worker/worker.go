@@ -31,7 +31,7 @@ func Start(q *queue.Queue, workerID int, wg *sync.WaitGroup , ts *taskstore.Task
 			task.RetryCount++
 			ts.Update(task,queue.Queued)
 			q.Enqueue(task)
-
+           fmt.Println("retrying")
 			continue  // or else it will go to completed 
 		   }else{
             

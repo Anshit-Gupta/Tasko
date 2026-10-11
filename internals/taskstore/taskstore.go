@@ -13,7 +13,7 @@ import (
 
 type TaskStore struct{
 	records map[string]queue.Task
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 
@@ -28,6 +28,9 @@ func NewTaskStore()*TaskStore{
 
 
 func (s * TaskStore)Add(t queue.Task){
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	t.State = queue.Queued 
 	s.records[t.ID]=t
 }
@@ -44,4 +47,19 @@ func (s *TaskStore)Update(t queue.Task , state queue.TaskState)error{
 
 	s.records[t.ID]=t
 	return  nil
+}
+
+
+func (s *TaskStore)Get( taskId string) (*queue.Task , error){
+       
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+     
+    task,exists := s.records[taskId];
+   if !exists{
+       return nil,fmt.Errorf("id not found")
+   }
+
+   return &task,nil  
+
 }

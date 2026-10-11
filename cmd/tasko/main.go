@@ -42,7 +42,7 @@ func main(){
    }
     newtask4:= queue.Task{
        ID: "4",
-	   Type: "send_email",
+	   Type: "send",
 	   Payload: []byte(`{"to":"anshit@email.com"}`),
    }
     ts.Add(newtask)
@@ -53,6 +53,10 @@ func main(){
 	q.Enqueue(newtask3)
 	ts.Add(newtask4)
 	q.Enqueue(newtask4)
+
+
+	task4,_ := ts.Get("4")
+	fmt.Println(task4)
 
 	signal.Notify(sigChan , os.Interrupt , syscall.SIGTERM)
     
