@@ -24,7 +24,7 @@ type Queue struct {
 	tasks chan Task
 }
 
-//constructor
+// constructor
 func NewQueue(capacity int) *Queue {
 	//Queue = the thing managing the tasks
 	//tasks = the channel containing many Tasks

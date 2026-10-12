@@ -22,7 +22,7 @@ type TaskStore struct {
 //constructor
 
 func NewTaskStore(path string) (*TaskStore, error) {
-
+   os.MkdirAll("data", 0755)
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
 
 	if err != nil {
@@ -44,7 +44,7 @@ func NewTaskStore(path string) (*TaskStore, error) {
 
 }
 
-//GET
+// GET
 func (s *TaskStore) Get(taskId string) (*queue.Task, bool) {
 
 	s.mu.RLock()
@@ -59,7 +59,7 @@ func (s *TaskStore) Get(taskId string) (*queue.Task, bool) {
 
 }
 
-//POST
+// POST
 func (s *TaskStore) Add(t queue.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -105,7 +105,7 @@ func (s *TaskStore) Add(t queue.Task) error {
 	return nil
 }
 
-//put
+// put
 func (s *TaskStore) Update(t queue.Task, state queue.TaskState) error {
 
 	s.mu.Lock()
