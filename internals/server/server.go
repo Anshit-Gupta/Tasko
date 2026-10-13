@@ -2,7 +2,7 @@ package server
 
 import (
 	"net/http"
-
+    "context"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
 )
@@ -37,4 +37,8 @@ func NewServer(q *queue.Queue, ts *taskstore.TaskStore) *Server {
 //start
 func (s *Server) Start() error {
 	return s.httpServer.ListenAndServe()
+}
+
+func (s *Server)Shutdown(ctx context.Context)error{
+	return s.httpServer.Shutdown(ctx)
 }

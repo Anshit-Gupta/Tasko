@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/Anshit-Gupta/Tasko/internals/server"
@@ -31,7 +33,7 @@ func main() {
 	srv := server.NewServer(q, ts)
 
 	go func() {
-		if err = srv.Start(); err != nil {
+		if err := srv.Start(); err != nil {
 			log.Panicln("HTTP server stopped:", err)
 		}
 	}()
@@ -52,11 +54,19 @@ func main() {
 	sig := <-sigChan
 	fmt.Println("Received:", sig)
 	// got the shutdown signal so stop taking any more task into the queue
+	//we stop taking any more request once the signal is detected 
+    ctx,cancel := context.WithTimeout(context.Background(),5*time.Second)
+	defer cancel()
 
+	 if err := srv.Shutdown(ctx);err!=nil{
+      fmt.Println("Server shutdown error: ", err)
+     }
 	q.Close()
 
 	//wait for all the task to be completed before existing main
 	wg.Wait()
 	ts.Close()
+
+	
 
 }
