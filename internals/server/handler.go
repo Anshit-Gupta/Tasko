@@ -24,6 +24,14 @@ type GetTaskResponse struct{
 	Type string `json:"type"`
 	Status queue.TaskState `json:"status"`
 	RetryCount int `json:"retryCount"`
+	LastError string `json:"lastError"`
+}
+
+type TaskListResponse struct {
+    ID         string          `json:"id"`
+    Type       string          `json:"type"`
+    Status     queue.TaskState `json:"status"`
+    RetryCount int             `json:"retryCount"`
 }
 
 
@@ -99,12 +107,37 @@ func (s *Server)GetTaskHandler(w http.ResponseWriter , r *http.Request){
 		return
 	}
 
-	response := GetTaskResponse{ID:task.ID , Type: task.Type ,Status: task.State , RetryCount: task.RetryCount  }
+	response := GetTaskResponse{ID:task.ID , Type: task.Type ,Status: task.State , RetryCount: task.RetryCount , LastError: task.LastError }
     w.Header().Set("Content-Type", "application/json")
     if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+}
+
+func (s *Server)GetAllTaskHandler(w http.ResponseWriter , r *http.Request){
+	if r.Method != http.MethodGet{
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+        return 
+	}
+
+	//take all the tasks in map and returnn them as json 
+	tasks:=s.taskstore.Tasks()
+    
+    var response []TaskListResponse
+
+	for _,task := range tasks{
+		response = append(response, TaskListResponse{
+			ID: task.ID,
+			  Type:       task.Type,
+        Status:     task.State,
+        RetryCount: task.RetryCount,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
 
 }
 

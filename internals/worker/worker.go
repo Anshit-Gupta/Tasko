@@ -35,7 +35,7 @@ func Start(q *queue.Queue, workerID int, wg *sync.WaitGroup, ts *taskstore.TaskS
 			} else {
 
 				fmt.Println("task failed:", task.ID, err)
-
+                task.LastError = err.Error()
 				ts.Update(task, queue.Failed)
 				continue
 			}

@@ -31,6 +31,7 @@ func NewServer(q *queue.Queue, ts *taskstore.TaskStore) *Server {
 
 	mux.HandleFunc("/tasks", s.CreateTaskHandler)
     mux.HandleFunc("/tasks/{id}",s.GetTaskHandler)
+	mux.HandleFunc("/Alltasks",s.GetAllTaskHandler)
 	return s
 }
 

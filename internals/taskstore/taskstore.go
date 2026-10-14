@@ -176,3 +176,17 @@ func (s *TaskStore) QueuedTasks() []queue.Task {
 	return tasks
 
 }
+
+//for tasks list endpoint 
+func (s *TaskStore) Tasks() []queue.Task {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+
+    var tasks []queue.Task
+
+    for _, task := range s.records {
+        tasks = append(tasks, task)
+    }
+
+    return tasks
+}
