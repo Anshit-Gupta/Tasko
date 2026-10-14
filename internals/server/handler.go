@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/google/uuid"
@@ -10,7 +11,7 @@ import (
 
 type CreateTaskRequest struct {
 	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"` //accepts arbitrary json as []byte
+	Payload json.RawMessage `json:"payload"` // preserve payload as raw JSON
 }
 
 type CreateTaskResponse struct {
@@ -18,7 +19,21 @@ type CreateTaskResponse struct {
 	Status string `json:"status"`
 }
 
+type GetTaskResponse struct{
+	ID string `json:"id"`
+	Type string `json:"type"`
+	Status queue.TaskState `json:"status"`
+	RetryCount int `json:"retryCount"`
+}
+
+
+
 func (s *Server) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
+    
+	if r.Method != http.MethodPost {
+    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+    return
+   }
 
 	// we  recived task as json
 	var newTask CreateTaskRequest
@@ -55,6 +70,38 @@ func (s *Server) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func (s *Server)GetTaskHandler(w http.ResponseWriter , r *http.Request){
+
+	if r.Method != http.MethodGet {
+    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+    return 
+    }
+	
+
+	//we will get the id from the url 
+    taskId := strings.TrimPrefix(r.URL.Path,"/tasks/")
+	if taskId==""{
+		http.Error(w,"task id  cannot be empty",http.StatusBadRequest)
+		return
+	}
+    
+
+	task , exists :=s.taskstore.Get(taskId)
+
+	if !exists{
+		http.Error(w,"task not found  ",http.StatusNotFound)
+		return
+	}
+
+	response := GetTaskResponse{ID:task.ID , Type: task.Type ,Status: task.State , RetryCount: task.RetryCount  }
+    w.Header().Set("Content-Type", "application/json")
+    if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

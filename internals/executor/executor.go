@@ -29,18 +29,16 @@ func Execute(t *queue.Task) error {
 }
 
 func SendMail(t *queue.Task) error {
-
+  
 	var newPayload EmailPayload
 	err := json.Unmarshal(t.Payload, &newPayload)
 	if err != nil {
-		fmt.Println("error:", err)
 		return err
 	}
 
 	email := newPayload.To
 
 	fmt.Printf("sendind mail to %v", email)
-	time.Sleep(time.Second)
 	fmt.Println("Email sent")
 
 	return nil
