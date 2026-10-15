@@ -71,9 +71,9 @@ func TestRecoveredTaskIsProcessed(t *testing.T) {
 	// Start a worker.
 	var wg sync.WaitGroup
 	wg.Add(1)
-
-	go worker.Start(q, 1, &wg, ts)
-
+   shutdown := make(chan struct{})
+	go worker.Start(q, 1, &wg, ts , shutdown)
+    close(shutdown)
 	// No more tasks will be added.
 	q.Close()
 

@@ -18,7 +18,7 @@ import (
 
 func main() {
 	sigChan := make(chan os.Signal, 1)
-
+	shutdown := make(chan struct{})
 	var wg sync.WaitGroup
 
 	q := queue.NewQueue(10)
@@ -46,7 +46,7 @@ func main() {
 
 	for i := 1; i <= 3; i++ {
 		wg.Add(1)
-		go worker.Start(q, i, &wg, ts) //as ts is already a pointer
+		go worker.Start(q, i, &wg, ts, shutdown) //as ts is already a pointer
 	}
 
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -54,19 +54,19 @@ func main() {
 	sig := <-sigChan
 	fmt.Println("Received:", sig)
 	// got the shutdown signal so stop taking any more task into the queue
-	//we stop taking any more request once the signal is detected 
-    ctx,cancel := context.WithTimeout(context.Background(),5*time.Second)
+	//we stop taking any more request once the signal is detected
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	 if err := srv.Shutdown(ctx);err!=nil{
-      fmt.Println("Server shutdown error: ", err)
-     }
+	if err := srv.Shutdown(ctx); err != nil {
+		fmt.Println("Server shutdown error: ", err)
+	}
+
+	close(shutdown) //tell retry schedulers to stop
 	q.Close()
 
 	//wait for all the task to be completed before existing main
 	wg.Wait()
 	ts.Close()
-
-	
 
 }
