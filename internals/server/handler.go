@@ -2,11 +2,11 @@ package server
 
 import (
 	"encoding/json"
-	"net/http"
-	"strings"
-
+	"fmt"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/google/uuid"
+	"net/http"
+	"strings"
 )
 
 type CreateTaskRequest struct {
@@ -19,29 +19,27 @@ type CreateTaskResponse struct {
 	Status string `json:"status"`
 }
 
-type GetTaskResponse struct{
-	ID string `json:"id"`
-	Type string `json:"type"`
-	Status queue.TaskState `json:"status"`
-	RetryCount int `json:"retryCount"`
-	LastError string `json:"lastError"`
+type GetTaskResponse struct {
+	ID         string          `json:"id"`
+	Type       string          `json:"type"`
+	Status     queue.TaskState `json:"status"`
+	RetryCount int             `json:"retryCount"`
+	LastError  string          `json:"lastError"`
 }
 
 type TaskListResponse struct {
-    ID         string          `json:"id"`
-    Type       string          `json:"type"`
-    Status     queue.TaskState `json:"status"`
-    RetryCount int             `json:"retryCount"`
+	ID         string          `json:"id"`
+	Type       string          `json:"type"`
+	Status     queue.TaskState `json:"status"`
+	RetryCount int             `json:"retryCount"`
 }
 
-
-
 func (s *Server) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
-    
+
 	if r.Method != http.MethodPost {
-    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-    return
-   }
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
 	// we  recived task as json
 	var newTask CreateTaskRequest
@@ -71,10 +69,17 @@ func (s *Server) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = s.broker.Publish(task)
-if err != nil {
-    http.Error(w, err.Error(), http.StatusInternalServerError)
-    return
-}
+	//redis error handling server->redis
+	if err != nil {
+		task.LastError = err.Error()
+
+		if updateErr := s.taskstore.Update(task, queue.Failed); updateErr != nil {
+			fmt.Println("failed to update task after publish failure:", updateErr)
+		}
+
+		http.Error(w, "failed to queue task", http.StatusServiceUnavailable)
+		return
+	}
 
 	//restus status
 	response := CreateTaskResponse{ID: task.ID, Status: "queued"}
@@ -88,62 +93,57 @@ if err != nil {
 
 }
 
-func (s *Server)GetTaskHandler(w http.ResponseWriter , r *http.Request){
+func (s *Server) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
-    http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-    return 
-    }
-	
-
-	//we will get the id from the url 
-    taskId := strings.TrimPrefix(r.URL.Path,"/tasks/")
-	if taskId==""{
-		http.Error(w,"task id  cannot be empty",http.StatusBadRequest)
-		return
-	}
-    
-
-	task , exists :=s.taskstore.Get(taskId)
-
-	if !exists{
-		http.Error(w,"task not found  ",http.StatusNotFound)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	response := GetTaskResponse{ID:task.ID , Type: task.Type ,Status: task.State , RetryCount: task.RetryCount , LastError: task.LastError }
-    w.Header().Set("Content-Type", "application/json")
-    if err := json.NewEncoder(w).Encode(response); err != nil {
+	//we will get the id from the url
+	taskId := strings.TrimPrefix(r.URL.Path, "/tasks/")
+	if taskId == "" {
+		http.Error(w, "task id  cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	task, exists := s.taskstore.Get(taskId)
+
+	if !exists {
+		http.Error(w, "task not found  ", http.StatusNotFound)
+		return
+	}
+
+	response := GetTaskResponse{ID: task.ID, Type: task.Type, Status: task.State, RetryCount: task.RetryCount, LastError: task.LastError}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 }
 
-func (s *Server)GetAllTaskHandler(w http.ResponseWriter , r *http.Request){
-	if r.Method != http.MethodGet{
+func (s *Server) GetAllTaskHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-        return 
+		return
 	}
 
-	//take all the tasks in map and returnn them as json 
-	tasks:=s.taskstore.Tasks()
-    
-    var response []TaskListResponse
+	//take all the tasks in map and returnn them as json
+	tasks := s.taskstore.Tasks()
 
-	for _,task := range tasks{
+	var response []TaskListResponse
+
+	for _, task := range tasks {
 		response = append(response, TaskListResponse{
-			ID: task.ID,
-			  Type:       task.Type,
-        Status:     task.State,
-        RetryCount: task.RetryCount,
+			ID:         task.ID,
+			Type:       task.Type,
+			Status:     task.State,
+			RetryCount: task.RetryCount,
 		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(response)
 
 }
-
-
-
