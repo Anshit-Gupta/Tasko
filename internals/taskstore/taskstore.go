@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
-
+    "path/filepath"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 )
 
@@ -22,13 +22,16 @@ type TaskStore struct {
 //constructor
 
 func NewTaskStore(path string) (*TaskStore, error) {
-   os.MkdirAll("data", 0755)
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
+    dir := filepath.Dir(path)
 
+    if err := os.MkdirAll(dir, 0755); err != nil {
+        return nil, err
+    }
+    file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	ts := &TaskStore{
 		logFile: file,
 		records: make(map[string]queue.Task),

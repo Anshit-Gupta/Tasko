@@ -1,10 +1,13 @@
 package worker_test
 
 import (
+	"context"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/Anshit-Gupta/Tasko/internals/broker"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
 	"github.com/Anshit-Gupta/Tasko/internals/worker"
@@ -54,7 +57,18 @@ func TestRecoveredTaskIsProcessed(t *testing.T) {
 
 	q := queue.NewQueue(10)
 
-	// This is the exact recovery logic from main.
+	// Redis broker.
+	b := broker.NewBroker()
+
+	if err := b.Ping(); err != nil {
+		t.Fatalf("Redis connection failed: %v", err)
+	}
+
+	// --------------------------------------------------
+	// Recovery logic.
+	// Processing tasks are recovered as Queued.
+	// --------------------------------------------------
+
 	recoveredTasks := ts.QueuedTasks()
 
 	if len(recoveredTasks) != 1 {
@@ -68,12 +82,17 @@ func TestRecoveredTaskIsProcessed(t *testing.T) {
 		q.Enqueue(task)
 	}
 
-	// Start a worker.
+	// --------------------------------------------------
+	// Start worker.
+	// --------------------------------------------------
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-   shutdown := make(chan struct{})
-	go worker.Start(q, 1, &wg, ts , shutdown)
-    close(shutdown)
+
+	shutdown := make(chan struct{})
+
+	go worker.Start(q, 1, &wg, b, shutdown)
+
 	// No more tasks will be added.
 	q.Close()
 
@@ -81,18 +100,30 @@ func TestRecoveredTaskIsProcessed(t *testing.T) {
 	wg.Wait()
 
 	// --------------------------------------------------
-	// Verify that the recovered task was actually processed.
+	// Verify worker published task updates.
 	// --------------------------------------------------
 
-	recovered, ok := ts.Get(task.ID)
-	if !ok {
-		t.Fatalf("recovered task was not found in taskstore")
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		2*time.Second,
+	)
+	defer cancel()
+
+	var completed bool
+
+	for !completed {
+		update, err := b.ConsumeUpdate(ctx)
+		if err != nil {
+			t.Fatalf("failed to consume task update: %v", err)
+		}
+
+		if update.Task.ID == task.ID &&
+			update.Task.State == queue.Completed {
+			completed = true
+		}
 	}
 
-	if recovered.State != queue.Completed {
-		t.Fatalf(
-			"expected recovered task to be Completed, got %v",
-			recovered.State,
-		)
+	if !completed {
+		t.Fatal("expected recovered task to be completed")
 	}
 }

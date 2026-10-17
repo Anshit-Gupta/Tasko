@@ -1,28 +1,30 @@
-package worker
+package worker_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Anshit-Gupta/Tasko/internals/broker"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
-	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
+	"github.com/Anshit-Gupta/Tasko/internals/worker"
 )
 
 func TestRetryDoesNotBlockWorker(t *testing.T) {
 	q := queue.NewQueue(10)
 	shutdown := make(chan struct{})
 
-	ts, err := taskstore.NewTaskStore("test-tasko.log")
-	if err != nil {
-		t.Fatal(err)
+	b := broker.NewBroker()
+
+	if err := b.Ping(); err != nil {
+		t.Fatal("Redis connection failed:", err)
 	}
-	defer ts.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	go Start(q, 1, &wg, ts, shutdown)
+	go worker.Start(q, 1, &wg, b, shutdown)
 
 	// This task will fail because the type is invalid.
 	failingTask := queue.Task{
@@ -38,37 +40,39 @@ func TestRetryDoesNotBlockWorker(t *testing.T) {
 		Payload: []byte(`{"to":"test@example.com"}`),
 	}
 
-	if err := ts.Add(failingTask); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := ts.Add(successTask); err != nil {
-		t.Fatal(err)
-	}
-
 	q.Enqueue(failingTask)
 	q.Enqueue(successTask)
 
-	// Give the worker enough time to process both.
-	time.Sleep(500 * time.Millisecond)
+	// Wait until we receive the updates we care about.
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		3*time.Second,
+	)
+	defer cancel()
 
-	task, exists := ts.Get("success-task")
-	if !exists {
-		t.Fatal("success task not found")
-	}
+	var foundRetry bool
+	var foundSuccess bool
 
-	if task.State != queue.Completed {
-		t.Fatalf("expected success task to be completed, got %s", task.State)
-	}
+	for !foundRetry || !foundSuccess {
+		update, err := b.ConsumeUpdate(ctx)
+		if err != nil {
+			t.Fatal("failed to consume task update:", err)
+		}
 
-	// The failing task should have been scheduled for retry.
-	task, exists = ts.Get("failing-task")
-	if !exists {
-		t.Fatal("failing task not found")
-	}
+		task := update.Task
 
-	if task.RetryCount != 1 {
-		t.Fatalf("expected retry count 1, got %d", task.RetryCount)
+		// The failing task should have been scheduled for retry.
+		if task.ID == "failing-task" &&
+			task.State == queue.Queued &&
+			task.RetryCount == 1 {
+			foundRetry = true
+		}
+
+		// The successful task should eventually be completed.
+		if task.ID == "success-task" &&
+			task.State == queue.Completed {
+			foundSuccess = true
+		}
 	}
 
 	// Shut down retry scheduler before closing the queue.

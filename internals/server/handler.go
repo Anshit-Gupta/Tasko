@@ -70,7 +70,11 @@ func (s *Server) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.queue.Enqueue(task)
+	err = s.broker.Publish(task)
+if err != nil {
+    http.Error(w, err.Error(), http.StatusInternalServerError)
+    return
+}
 
 	//restus status
 	response := CreateTaskResponse{ID: task.ID, Status: "queued"}

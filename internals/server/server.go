@@ -1,20 +1,22 @@
 package server
 
 import (
+	"context"
 	"net/http"
-    "context"
-	"github.com/Anshit-Gupta/Tasko/internals/queue"
+
+	"github.com/Anshit-Gupta/Tasko/internals/broker"
+
 	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
 )
 
 type Server struct {
 	httpServer *http.Server
-	queue      *queue.Queue
+	broker *broker.Broker
 	taskstore  *taskstore.TaskStore
 }
 
 //CREATE + CONFIGURE
-func NewServer(q *queue.Queue, ts *taskstore.TaskStore) *Server {
+func NewServer(b *broker.Broker, ts *taskstore.TaskStore) *Server {
 	mux := http.NewServeMux() //custom mux
 	//register routes
 
@@ -25,7 +27,7 @@ func NewServer(q *queue.Queue, ts *taskstore.TaskStore) *Server {
 
 	s := &Server{
 		httpServer: httpServer,
-		queue:      q,
+		broker:      b,
 		taskstore:  ts,
 	}
 
@@ -42,4 +44,8 @@ func (s *Server) Start() error {
 
 func (s *Server)Shutdown(ctx context.Context)error{
 	return s.httpServer.Shutdown(ctx)
+}
+
+func (s *Server) Handler() http.Handler {
+	return s.httpServer.Handler
 }
