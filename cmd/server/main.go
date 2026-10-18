@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/Anshit-Gupta/Tasko/internals/broker"
+	"github.com/Anshit-Gupta/Tasko/internals/metrics"
+	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/Anshit-Gupta/Tasko/internals/server"
 	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
 )
@@ -32,7 +34,9 @@ func main() {
 	}
 	defer ts.Close()
 
-	srv := server.NewServer(broker, ts)
+	m := metrics.NewMetrics()
+
+	srv := server.NewServer(broker, ts, m)
 
 	// Consume task updates from Redis
 	updateDone := make(chan struct{})
@@ -48,6 +52,24 @@ func main() {
 			}
 
 			task := update.Task
+			//update metrics
+			switch task.State {
+			case queue.Processing:
+				if task.RetryCount == 0 {
+					m.TaskReceived()
+				}
+
+			case queue.Queued:
+				if task.RetryCount > 0 {
+					m.TaskRetried()
+				}
+
+			case queue.Completed:
+				m.TaskCompleted()
+
+			case queue.Failed:
+				m.TaskFailed()
+			}
 
 			if err := ts.Update(task, task.State); err != nil {
 				fmt.Println("failed to update task:", err)

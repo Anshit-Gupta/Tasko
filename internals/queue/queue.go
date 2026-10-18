@@ -18,7 +18,7 @@ type Task struct {
 	Payload    []byte
 	State      TaskState
 	RetryCount int // number of retries already performed
-	LastError string
+	LastError  string
 }
 
 type Queue struct {

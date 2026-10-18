@@ -29,7 +29,7 @@ func Execute(t *queue.Task) error {
 }
 
 func SendMail(t *queue.Task) error {
-  
+
 	var newPayload EmailPayload
 	err := json.Unmarshal(t.Payload, &newPayload)
 	if err != nil {

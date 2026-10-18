@@ -147,3 +147,25 @@ func (s *Server) GetAllTaskHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 
 }
+
+func (s *Server) GetMetricsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	response := struct {
+		TasksTotal     uint64 `json:"tasks_total"`
+		TasksCompleted uint64 `json:"tasks_completed"`
+		TasksFailed    uint64 `json:"tasks_failed"`
+		TasksRetried   uint64 `json:"tasks_retried"`
+	}{
+		TasksTotal:     s.metrics.TasksTotal.Load(),
+		TasksCompleted: s.metrics.TasksCompleted.Load(),
+		TasksFailed:    s.metrics.TasksFailed.Load(),
+		TasksRetried:   s.metrics.TasksRetried.Load(),
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+
+}

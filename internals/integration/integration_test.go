@@ -13,6 +13,7 @@ import (
 
 	"github.com/Anshit-Gupta/Tasko/internals/broker"
 	"github.com/Anshit-Gupta/Tasko/internals/dispatcher"
+	"github.com/Anshit-Gupta/Tasko/internals/metrics"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"github.com/Anshit-Gupta/Tasko/internals/server"
 	"github.com/Anshit-Gupta/Tasko/internals/taskstore"
@@ -42,8 +43,8 @@ func TestTaskoEndToEnd(t *testing.T) {
 	defer ts.Close()
 
 	q := queue.NewQueue(10)
-
-	srv := server.NewServer(b, ts)
+	m := metrics.NewMetrics()
+	srv := server.NewServer(b, ts, m)
 
 	// --------------------------------------------------
 	// Start dispatcher

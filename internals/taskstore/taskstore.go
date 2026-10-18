@@ -4,10 +4,10 @@ package taskstore
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"sync"
-    "path/filepath"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
+	"os"
+	"path/filepath"
+	"sync"
 )
 
 //remembers Tasks and their states
@@ -22,16 +22,16 @@ type TaskStore struct {
 //constructor
 
 func NewTaskStore(path string) (*TaskStore, error) {
-    dir := filepath.Dir(path)
+	dir := filepath.Dir(path)
 
-    if err := os.MkdirAll(dir, 0755); err != nil {
-        return nil, err
-    }
-    file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	ts := &TaskStore{
 		logFile: file,
 		records: make(map[string]queue.Task),
@@ -180,16 +180,16 @@ func (s *TaskStore) QueuedTasks() []queue.Task {
 
 }
 
-//for tasks list endpoint 
+// for tasks list endpoint
 func (s *TaskStore) Tasks() []queue.Task {
-    s.mu.RLock()
-    defer s.mu.RUnlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-    var tasks []queue.Task
+	var tasks []queue.Task
 
-    for _, task := range s.records {
-        tasks = append(tasks, task)
-    }
+	for _, task := range s.records {
+		tasks = append(tasks, task)
+	}
 
-    return tasks
+	return tasks
 }
