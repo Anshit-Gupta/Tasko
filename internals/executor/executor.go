@@ -20,6 +20,7 @@ func Execute(t *queue.Task) error {
 
 	switch t.Type {
 	case "send_email":
+
 		return SendMail(t)
 	case "resize_image":
 		return ResizeImage(t)
@@ -39,7 +40,6 @@ func SendMail(t *queue.Task) error {
 	email := newPayload.To
 
 	fmt.Printf("sendind mail to %v", email)
-	fmt.Println("Email sent")
 
 	return nil
 
@@ -57,7 +57,6 @@ func ResizeImage(t *queue.Task) error {
 
 	fmt.Printf("Resizing the %v image ", image)
 	time.Sleep(time.Second)
-	fmt.Println("Image resized!")
 
 	return nil
 }

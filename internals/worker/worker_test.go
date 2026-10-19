@@ -15,7 +15,7 @@ func TestRetryDoesNotBlockWorker(t *testing.T) {
 	q := queue.NewQueue(10)
 	shutdown := make(chan struct{})
 
-	b := broker.NewBroker()
+	b := broker.NewBroker("localhost:6379")
 
 	if err := b.Ping(); err != nil {
 		t.Fatal("Redis connection failed:", err)

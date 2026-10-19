@@ -21,8 +21,11 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	broker := broker.NewBroker()
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	broker := broker.NewBroker(redisAddr)
 
 	if err := broker.Ping(); err != nil {
 		log.Fatal("Redis connection failed:", err)

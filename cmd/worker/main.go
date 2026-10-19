@@ -22,8 +22,11 @@ func main() {
 	defer cancel()
 
 	var wg sync.WaitGroup
-
-	broker := broker.NewBroker()
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	broker := broker.NewBroker(redisAddr)
 
 	if err := broker.Ping(); err != nil {
 		fmt.Println("Redis connection failed:", err)

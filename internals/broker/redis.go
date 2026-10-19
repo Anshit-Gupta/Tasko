@@ -18,9 +18,9 @@ type TaskUpdate struct {
 
 //constructor
 
-func NewBroker() *Broker {
+func NewBroker(addr string) *Broker {
 	client := redis.NewClient(&redis.Options{ // creates our Go-side Redis client
-		Addr: "localhost:6379",
+		Addr: addr,
 	})
 
 	return &Broker{

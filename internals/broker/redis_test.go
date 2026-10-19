@@ -2,7 +2,6 @@ package broker
 
 import (
 	"context"
-	"fmt"
 	"github.com/Anshit-Gupta/Tasko/internals/queue"
 	"reflect"
 	"testing"
@@ -10,7 +9,8 @@ import (
 )
 
 func TestPing(t *testing.T) {
-	broker := NewBroker()
+
+	broker := NewBroker("localhost:6379")
 
 	err := broker.Ping()
 
@@ -20,7 +20,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	broker := NewBroker()
+	broker := NewBroker("localhost:6379")
 	err := broker.Ping()
 
 	if err != nil {
@@ -44,7 +44,7 @@ func TestPublish(t *testing.T) {
 }
 
 func TestConsume(t *testing.T) {
-	broker := NewBroker()
+	broker := NewBroker("localhost:6379")
 
 	err := broker.Ping()
 	if err != nil {
@@ -81,7 +81,7 @@ func TestConsume(t *testing.T) {
 }
 
 func TestConsumeCancellation(t *testing.T) {
-	broker := NewBroker()
+	broker := NewBroker("localhost:6379")
 
 	err := broker.Ping()
 	if err != nil {
@@ -94,9 +94,9 @@ func TestConsumeCancellation(t *testing.T) {
 	done := make(chan error)
 
 	go func() {
-		fmt.Println("Consume started")
+
 		_, err := broker.Consume(ctx)
-		fmt.Println("Consume returned:", err)
+
 		done <- err
 	}()
 
@@ -104,7 +104,6 @@ func TestConsumeCancellation(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	cancel()
-	fmt.Println("Context cancelled")
 	select {
 	case err := <-done:
 		if err == nil {

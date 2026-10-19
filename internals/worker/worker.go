@@ -52,7 +52,7 @@ func Start(
 			}
 
 			// Permanently failed
-			fmt.Println("task failed:", task.ID, err)
+			fmt.Printf("worker %d: task failed: %s %v\n", workerID, task.ID, err)
 
 			task.LastError = err.Error()
 			task.State = queue.Failed
@@ -65,7 +65,7 @@ func Start(
 		}
 
 		// Completed
-		fmt.Println("task completed:", task.ID)
+		fmt.Printf("worker %d: task completed: %s\n", workerID, task.ID)
 
 		task.State = queue.Completed
 
@@ -91,7 +91,6 @@ func retryScheduler(
 	select {
 	case <-timer.C:
 		q.Enqueue(task)
-		fmt.Println("retrying")
 
 	case <-shutdown:
 		return

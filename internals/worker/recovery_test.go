@@ -58,7 +58,7 @@ func TestRecoveredTaskIsProcessed(t *testing.T) {
 	q := queue.NewQueue(10)
 
 	// Redis broker.
-	b := broker.NewBroker()
+	b := broker.NewBroker("localhost:6379")
 
 	if err := b.Ping(); err != nil {
 		t.Fatalf("Redis connection failed: %v", err)

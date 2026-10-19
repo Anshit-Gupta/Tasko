@@ -1,0 +1,22 @@
+services:
+  server:
+   build: .
+   image: tasko
+   ports:
+     - "8080:8080"
+   environment:
+     REDIS_ADDR: redis:6379
+   volumes:
+     - ./data:/app/data
+
+
+  worker:
+   build: .
+   image: tasko
+   command: ["./worker"]
+   environment:
+     REDIS_ADDR: redis:6379
+  
+
+  redis:
+    image: redis:latest

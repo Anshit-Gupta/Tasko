@@ -28,7 +28,7 @@ func TestTaskoEndToEnd(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	b := broker.NewBroker()
+	b := broker.NewBroker("localhost:6379")
 
 	if err := b.Ping(); err != nil {
 		t.Fatalf("Redis connection failed: %v", err)
