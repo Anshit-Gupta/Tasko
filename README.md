@@ -1,101 +1,266 @@
-# Tasko
+<div align="center">
 
-```text
-  ┌──────────┐       ┌───────────┐       ┌────────────┐
-  │  Tasko   │──────▶│  Queue    │──────▶│  Workers   │
-  │  runner  │       │ buffered  │       │  × 3       │
-  └────┬─────┘       └───────────┘       └─────┬──────┘
-       │                                        │
-       └───────────────┬────────────────────────┘
-                       ▼
-                 ┌───────────┐
-                 │ TaskStore │
-                 │ JSONL log │
-                 └───────────┘
-```
+# Tasko 
 
-**Tasko is a small, durable background task runner written in Go.** It queues work, processes tasks concurrently, retries failures, and recovers unfinished work after a restart.
+> A lightweight distributed task processing system built from scratch in Go.
+> Tasko accepts tasks over HTTP, queues them through Redis, distributes them
+> across concurrent workers, handles failures with retries, persists task state,
+> and exposes runtime metrics.
 
-## What it does
+<br>
 
-- Runs three workers against a buffered in-memory queue.
-- Persists task state to `Tasko.log`.
-- Replays the log on startup.
-- Moves interrupted `processing` tasks back to `queued`.
-- Retries failed tasks up to **3 times**.
-- Shuts down gracefully on `Ctrl+C` or `SIGTERM`.
 
-## Quick start
+</div>
 
-Requires **Go 1.27.1**.
+## High-level overview
+
+![Tasko architecture](./tasko.png)
+
+## Key features
+
+- **Distributed task queue** backed by Redis
+- **Concurrent worker pool** using Go goroutines
+- **In-process buffering** with a channel-based Go queue
+- **Task lifecycle tracking** — `queued`, `processing`, `completed`, `failed`
+- **Automatic retries** with exponential backoff
+- **Persistent task state** using an append-only JSONL log
+- **Crash recovery** through log replay
+- **Graceful shutdown** with context cancellation
+- **Concurrent-safe state management**
+- **HTTP API** for submission, tracking, listing, and metrics
+- **Dockerized deployment** with Docker Compose
+- **End-to-end load testing**
+
+## Load Test
+
+Tasko was tested with 900 concurrent task submissions and measured
+end-to-end until all successfully submitted tasks reached `completed`.
+
+| Metric | Result |
+| --- | ---: |
+| Requests | 900 |
+| Successful | 900 |
+| Failed | 0 |
+| End-to-end time | ~4.83 s |
+| Throughput | **~186 tasks/s** |
+
+> Measured locally with three workers and lightweight simulated tasks.
+> Throughput depends on task workload, worker count, hardware, and external
+> dependencies; this is not a fixed system capacity.
+
+Run it with:
 
 ```bash
-git clone https://github.com/Anshit-Gupta/Tasko.git
-cd Tasko
-go run ./cmd/tasko
+go run ./cmd/loadtest
 ```
 
-The demo runner adds a few sample tasks and stays alive until it receives a shutdown signal:
+## How It Works
+
+### 1. Submit
+
+The HTTP server validates the request, assigns a UUID, persists the task,
+and publishes it to Redis.
+
+### 2. Dispatch
+
+The worker process consumes tasks from Redis and places them into a buffered
+local Go queue.
+
+### 3. Execute
+
+Workers consume tasks concurrently and execute them based on their type.
 
 ```text
-task completed: 1
-task completed: 2
-task completed: 3
-task failed: 4 unknown task type :send
+send_email
+resize_image
 ```
 
-Press `Ctrl+C` to close the queue, wait for active workers, and close the task store.
+### 4. Retry
 
-## Task lifecycle
+Failed tasks are retried up to three times with exponential backoff:
 
-```mermaid
-flowchart LR
-    A[queued] --> B[processing]
-    B --> C[completed]
-    B -->|error, retry count < 3| A
-    B -->|error, retry count = 3| D[failed]
-    E[restart] -->|processing tasks| A
+```text
+2s → 4s → 8s
 ```
 
-## Built-in task types
+If retries remain, the task returns to the queue. If retries are exhausted,
+the task is marked `failed`.
 
-### `send_email`
+### 5. Update
+
+Workers publish state changes through Redis. The server consumes these updates,
+persists the latest task state, and updates runtime metrics.
+
+## Task Lifecycle
+
+```text
+                 ┌───────────┐
+                 │ completed │
+                 └─────▲─────┘
+                       │ success
+┌────────┐   ┌─────────┴──────┐
+│ queued ├─▶│   processing    │
+└───▲────┘   └──────┬─────────┘
+    │               │
+    │ retry         │ retries exhausted
+    └───────────────┴────▶ failed
+```
+
+On restart, tasks left in `processing` are recovered as `queued` through log
+replay.
+
+## API
+
+The server listens on `localhost:8080`.
+
+### Create a task
+
+```http
+POST /tasks
+Content-Type: application/json
+```
 
 ```json
 {
-  "to": "person@example.com"
+  "type": "send_email",
+  "payload": {
+    "to": "test@example.com"
+  }
 }
 ```
-
-### `resize_image`
 
 ```json
 {
-  "image": "photo.jpg"
+  "id": "task-id",
+  "status": "queued"
 }
 ```
 
-Task execution is selected by the task's `Type` field in [`internals/executor`](./internals/executor).
+Example:
 
-## Project layout
+```bash
+curl -X POST http://localhost:8080/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"type":"send_email","payload":{"to":"test@example.com"}}'
+```
 
-```text
-cmd/tasko/              application entrypoint
-internals/queue/        task model and buffered queue
-internals/worker/       worker loop, retries, and shutdown behavior
-internals/executor/     built-in task executors
-internals/taskstore/    append-only JSONL persistence and recovery
-Tasko.log               task history created at runtime
+### Get a task
+
+```http
+GET /tasks/{id}
+```
+
+```json
+{
+  "id": "task-id",
+  "type": "send_email",
+  "status": "completed",
+  "retryCount": 0,
+  "lastError": ""
+}
+```
+
+### List tasks
+
+```http
+GET /Alltasks
+```
+
+### Read metrics
+
+```http
+GET /metrics
+```
+
+```json
+{
+  "tasks_total": 900,
+  "tasks_completed": 900,
+  "tasks_failed": 0,
+  "tasks_retried": 0
+}
+```
+
+## Run locally
+
+### Requirements
+
+- Go 1.27+
+- Docker
+- Docker Compose
+
+### Start the stack
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+| Service | Role |
+| --- | --- |
+| `server` | HTTP API and task-state consumer |
+| `worker` | Redis dispatcher and concurrent task workers |
+| `redis` | Task broker and update transport |
+
+The API is available at `http://localhost:8080`. Task state is mounted at
+[`data/Tasko.log`](./data/Tasko.log).
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+Stop the stack:
+
+```bash
+docker compose down
 ```
 
 ## Tests
+
+Run the test suite:
 
 ```bash
 go test ./...
 ```
 
-The test suite covers persistence, log replay, recovery of interrupted tasks, corrupted log entries, and worker processing.
+Run with the race detector:
 
-## Current scope
+```bash
+go test -race ./...
+```
 
-Tasko is intentionally compact and currently exposes its task setup in [`cmd/tasko/main.go`](./cmd/tasko/main.go). It is a foundation for experimenting with durable workers, not yet a general-purpose task queue or service.
+The integration test requires Redis on `localhost:6379`.
+
+## Project Structure
+
+```text
+Tasko/
+├── cmd/
+│   ├── server/             # HTTP API and Redis update consumer
+│   ├── worker/             # dispatcher and worker process
+│   └── loadtest/           # end-to-end load-testing client
+│
+├── internals/
+│   ├── broker/             # Redis task and update transport
+│   ├── dispatcher/         # Redis-to-local-queue bridge
+│   ├── executor/           # task execution
+│   ├── integration/        # end-to-end integration tests
+│   ├── metrics/            # atomic runtime counters
+│   ├── queue/              # local queue and task states
+│   ├── server/             # HTTP handlers and server setup
+│   ├── taskstore/          # append-only JSONL persistence
+│   └── worker/             # worker pool and retry scheduler
+│
+├── data/                   # runtime task log
+├── docker-compose.yml
+├── dockerfile
+├── go.mod
+└── tasko.png
+```
+
+![Go 1.27+](https://img.shields.io/badge/Go-1.27%2B-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Redis task broker](https://img.shields.io/badge/Redis-task%20broker-DC382D?style=flat-square&logo=redis&logoColor=white)
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-supported-2496ED?style=flat-square&logo=docker&logoColor=white)
